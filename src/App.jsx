@@ -581,7 +581,7 @@ function Dashboard({ scheduleGroups, totals }) {
         <Metric
           icon={WalletCards}
           label="ROI"
-          value={`${totals.roi}%`}
+          value={`${formatOneDecimal(totals.roi)}%`}
           valueTone={toneForNumber(totals.roi)}
           detail={`${totals.cashesCount} Cashes · ${totals.finalTables} FTs`}
         />
@@ -1024,7 +1024,7 @@ function TournamentTable({ onDelete, onEdit, results }) {
                 <td>{currency.format(item.cash)}</td>
                 <td>{item.finalTable ? "Yes" : "No"}</td>
                 <td className={toneClass(net)}>{currency.format(net)}</td>
-                <td className={toneClass(roi)}>{roi}%</td>
+                <td className={toneClass(roi)}>{formatOneDecimal(roi)}%</td>
                 <td>
                   <p className="table-note">{item.notes || "No notes yet."}</p>
                 </td>
@@ -1880,7 +1880,7 @@ function summarizeResults(results) {
   const cashes = results.reduce((sum, item) => sum + item.cash, 0);
   const entries = results.length;
   const net = cashes - buyIns;
-  const roi = buyIns > 0 ? Math.round((net / buyIns) * 100) : 0;
+  const roi = buyIns > 0 ? roundToOneDecimal((net / buyIns) * 100) : 0;
   const rakePercent = buyIns > 0 ? (rake / buyIns) * 100 : 0;
   const cashesCount = results.filter((item) => item.cash > 0).length;
   const finalTables = results.filter((item) => item.finalTable).length;
@@ -2079,7 +2079,7 @@ function exportToExcel(results, options) {
       "Final Table": result.finalTable ? "Yes" : "No",
       Net: getNet(result),
       Notes: result.notes,
-      ROI: `${getRoi(result)}%`,
+      ROI: `${formatOneDecimal(getRoi(result))}%`,
       Rake: result.rake,
       Status: formatStatus(result.status),
       Venue: result.venue,
@@ -2118,7 +2118,17 @@ function getNet(result) {
 }
 
 function getRoi(result) {
-  return result.buyIn > 0 ? Math.round((getNet(result) / result.buyIn) * 100) : 0;
+  return result.buyIn > 0
+    ? roundToOneDecimal((getNet(result) / result.buyIn) * 100)
+    : 0;
+}
+
+function roundToOneDecimal(value) {
+  return Math.round(value * 10) / 10;
+}
+
+function formatOneDecimal(value) {
+  return Number.isFinite(value) ? value.toFixed(1) : "0.0";
 }
 
 function toneForNumber(value) {
