@@ -304,22 +304,23 @@ function App() {
       const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) return;
 
-      const file = new File([blob], `simple-poker-${toDateInputValue(new Date())}.png`, {
-        type: "image/png",
-      });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: "Simple Poker Dashboard",
-        });
-        return;
+      if (navigator.clipboard && window.ClipboardItem) {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({
+              "image/png": blob,
+            }),
+          ]);
+          return;
+        } catch {
+          // Fall back to download in browsers that block image clipboard writes.
+        }
       }
 
       const downloadUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.download = file.name;
+      link.download = `simple-poker-${toDateInputValue(new Date())}.png`;
       link.click();
       URL.revokeObjectURL(downloadUrl);
     } finally {
@@ -456,13 +457,13 @@ function App() {
             )}
             {screen === "dashboard" && (
               <button
-                className="secondary-button"
+                className="secondary-button share-button"
                 disabled={isSharingSnapshot}
                 onClick={handleShareSnapshot}
                 type="button"
               >
                 <Camera size={18} />
-                <span>{isSharingSnapshot ? "Sharing..." : "Share"}</span>
+                <span>{isSharingSnapshot ? "Copying..." : "Share"}</span>
               </button>
             )}
             {screen !== "entry" && (

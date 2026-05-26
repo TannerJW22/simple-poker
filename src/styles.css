@@ -298,6 +298,10 @@ h2 {
   opacity: 0.55;
 }
 
+.share-button {
+  font-weight: 800;
+}
+
 .text-button {
   min-height: 34px;
   padding: 0 10px;
