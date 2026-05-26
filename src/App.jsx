@@ -594,7 +594,7 @@ function Dashboard({ scheduleGroups, totals }) {
           label="Net Result"
           value={currency.format(totals.net)}
           detail={formatAbiNet(totals)}
-          valueTone={toneForNumber(totals.net)}
+          valueToneClass={resultToneClass(totals.net, totals.buyIns)}
           positive
         />
         <Metric
@@ -943,7 +943,9 @@ function EntryForm({
 
       <aside className="result-preview">
         <p className="eyebrow">Projected Entry</p>
-        <h2 className={toneClass(previewNet)}>{currency.format(previewNet)}</h2>
+        <h2 className={resultToneClass(previewNet, preview.buyIn)}>
+          {currency.format(previewNet)}
+        </h2>
         <div className="preview-row">
           <span>Buyin</span>
           <strong>{currency.format(preview.buyIn)}</strong>
@@ -958,21 +960,31 @@ function EntryForm({
         </div>
         <div className="preview-row total">
           <span>Net Result</span>
-          <strong className={toneClass(previewNet)}>{currency.format(previewNet)}</strong>
+          <strong className={resultToneClass(previewNet, preview.buyIn)}>
+            {currency.format(previewNet)}
+          </strong>
         </div>
       </aside>
     </form>
   );
 }
 
-function Metric({ icon: Icon, label, value, detail, positive = false, valueTone }) {
+function Metric({
+  icon: Icon,
+  label,
+  value,
+  detail,
+  positive = false,
+  valueTone,
+  valueToneClass,
+}) {
   return (
     <article className={positive ? "metric positive" : "metric"}>
       <div className="metric-icon">
         <Icon size={20} />
       </div>
       <span>{label}</span>
-      <strong className={toneClass(valueTone)}>{value}</strong>
+      <strong className={valueToneClass ?? toneClass(valueTone)}>{value}</strong>
       {detail && <small>{detail}</small>}
     </article>
   );
@@ -1048,7 +1060,7 @@ function TournamentTable({ onDelete, onEdit, results }) {
                 <td>{item.finish || "-"}</td>
                 <td>{currency.format(item.cash)}</td>
                 <td>{item.finalTable ? "Yes" : "No"}</td>
-                <td className={toneClass(net)}>{currency.format(net)}</td>
+                <td className={resultToneClass(net, item.buyIn)}>{currency.format(net)}</td>
                 <td className={toneClass(roi)}>{formatOneDecimal(roi)}%</td>
                 <td>
                   <p className="table-note">{item.notes || "No notes yet."}</p>
@@ -1689,7 +1701,7 @@ function ScheduleColumn({ emptyText, label, results, status }) {
                 <div className="schedule-meta">
                   <span>{currency.format(result.buyIn)}</span>
                   {result.status === "completed" && (
-                    <strong className={toneClass(net)}>
+                    <strong className={resultToneClass(net, result.buyIn)}>
                       {currency.format(net)}
                     </strong>
                   )}
@@ -2163,6 +2175,17 @@ function toneForNumber(value) {
   if (value > 0) return 1;
   if (value < 0) return -1;
   return 0;
+}
+
+function resultToneClass(value, buyIn) {
+  const numericValue = typeof value === "number" ? value : Number(value);
+  const numericBuyIn = typeof buyIn === "number" ? buyIn : Number(buyIn);
+  if (!Number.isFinite(numericValue) || numericValue === 0) return "";
+  if (numericValue < 0) return "money-negative";
+  if (Number.isFinite(numericBuyIn) && numericBuyIn > 0 && numericValue < numericBuyIn) {
+    return "money-positive-light";
+  }
+  return "money-positive";
 }
 
 function toneClass(value) {

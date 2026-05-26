@@ -17,11 +17,7 @@ body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
-  background:
-    linear-gradient(90deg, rgba(24, 97, 72, 0.06) 1px, transparent 1px),
-    linear-gradient(0deg, rgba(24, 97, 72, 0.06) 1px, transparent 1px),
-    #f4f6f2;
-  background-size: 28px 28px;
+  background: #f4f6f2;
 }
 
 button,
@@ -545,6 +541,11 @@ td {
   font-weight: 800;
 }
 
+.money-positive-light {
+  color: #35a66b;
+  font-weight: 800;
+}
+
 .money-negative {
   color: #b44b30;
   font-weight: 800;
@@ -555,6 +556,13 @@ td {
 .preview-row strong.money-positive,
 .result-preview h2.money-positive {
   color: #0f7a54;
+}
+
+.metric strong.money-positive-light,
+.period-kpis strong.money-positive-light,
+.preview-row strong.money-positive-light,
+.result-preview h2.money-positive-light {
+  color: #35a66b;
 }
 
 .metric strong.money-negative,
@@ -727,6 +735,18 @@ td {
 
 .schedule-item strong {
   color: #17201c;
+}
+
+.schedule-item strong.money-positive {
+  color: #0f7a54;
+}
+
+.schedule-item strong.money-positive-light {
+  color: #35a66b;
+}
+
+.schedule-item strong.money-negative {
+  color: #b44b30;
 }
 
 .schedule-meta {
