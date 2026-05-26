@@ -148,11 +148,11 @@ const createVenueValue = "__create_venue__";
 
 const screens = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { id: "bankroll", label: "Manage Bankroll", icon: WalletCards },
   { id: "schedule", label: "My Schedule", icon: CalendarDays },
   { id: "ledger", label: "Past Results", icon: TableProperties },
   { id: "events", label: "Manage Events", icon: ReceiptText },
   { id: "venues", label: "Manage Venues", icon: MapPin },
+  { id: "bankroll", label: "Manage Bankroll", icon: WalletCards },
 ];
 
 const currency = new Intl.NumberFormat("en-US", {
@@ -224,8 +224,11 @@ function App() {
     [results],
   );
   const {
+    addManualBankrollTransaction,
     bankrollValue,
+    deleteManualBankrollTransaction,
     isBankrollVisible,
+    manualBankrollTransactions,
     setBankrollValue,
     toggleBankrollVisibility,
   } = usePersistentBankroll(portfolioId, finishedPnl);
@@ -519,8 +522,13 @@ function App() {
         )}
         {screen === "bankroll" && (
           <BankrollManager
+            completedResults={results.filter((result) => result.status === "completed")}
             isVisible={isBankrollVisible}
-            onChange={setBankrollValue}
+            manualTransactions={manualBankrollTransactions}
+            onAddManualTransaction={addManualBankrollTransaction}
+            onDeleteManualTransaction={deleteManualBankrollTransaction}
+            onDeleteTournament={handleDeleteResult}
+            onSetBankroll={setBankrollValue}
             value={bankrollValue}
           />
         )}
@@ -675,9 +683,24 @@ function BankrollPanel({ isVisible, onToggleVisibility, value }) {
   );
 }
 
-function BankrollManager({ isVisible, onChange, value }) {
+function BankrollManager({
+  completedResults,
+  isVisible,
+  manualTransactions,
+  onAddManualTransaction,
+  onDeleteManualTransaction,
+  onDeleteTournament,
+  onSetBankroll,
+  value,
+}) {
   const [draftValue, setDraftValue] = useState(() => formatInputNumber(value));
+  const [adjustmentAmount, setAdjustmentAmount] = useState("");
+  const [adjustmentNote, setAdjustmentNote] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const transactionHistory = useMemo(
+    () => buildBankrollHistory(manualTransactions, completedResults),
+    [completedResults, manualTransactions],
+  );
 
   useEffect(() => {
     if (!isEditing) setDraftValue(formatInputNumber(value));
@@ -691,7 +714,7 @@ function BankrollManager({ isVisible, onChange, value }) {
       return;
     }
 
-    onChange(numericValue);
+    onSetBankroll(numericValue);
     setIsEditing(false);
   }
 
@@ -700,20 +723,28 @@ function BankrollManager({ isVisible, onChange, value }) {
     setIsEditing(true);
   }
 
+  function handleAdjustmentSubmit(event) {
+    event.preventDefault();
+    const amount = Number(adjustmentAmount);
+    if (!Number.isFinite(amount) || amount === 0) return;
+    onAddManualTransaction({
+      amount,
+      description: adjustmentNote.trim() || (amount > 0 ? "Deposit" : "Withdrawal"),
+    });
+    setAdjustmentAmount("");
+    setAdjustmentNote("");
+  }
+
   return (
     <div className="screen-stack">
       <section className="panel bankroll-manager">
         <PanelHeader icon={WalletCards} title="Bankroll Settings" />
         <div className="bankroll-manager-grid">
-          <div>
-            <span>Current Bankroll</span>
-            <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
-          </div>
           <label className={isEditing ? "field bankroll-edit-field editing" : "field bankroll-edit-field"}>
-            <span>Bankroll Amount</span>
+            <span>Bankroll</span>
             <input
               aria-label="Bankroll amount"
-              disabled={!isVisible || !isEditing}
+              disabled={!isEditing}
               inputMode="decimal"
               onBlur={(event) => commitValue(event.target.value)}
               onChange={(event) => setDraftValue(event.target.value)}
@@ -722,18 +753,42 @@ function BankrollManager({ isVisible, onChange, value }) {
                   event.currentTarget.blur();
                 }
               }}
-              placeholder={isVisible ? "0.00" : "Hidden"}
+              placeholder="0.00"
               readOnly={!isEditing}
               step="0.01"
               type="number"
-              value={isVisible ? draftValue : ""}
+              value={draftValue}
             />
           </label>
+          <form className="bankroll-adjustment-form" onSubmit={handleAdjustmentSubmit}>
+            <label className="field">
+              <span>Manual Adjustment</span>
+              <input
+                inputMode="decimal"
+                onChange={(event) => setAdjustmentAmount(event.target.value)}
+                placeholder="Deposit or withdrawal"
+                step="0.01"
+                type="number"
+                value={adjustmentAmount}
+              />
+            </label>
+            <label className="field">
+              <span>Note</span>
+              <input
+                onChange={(event) => setAdjustmentNote(event.target.value)}
+                placeholder="Optional"
+                value={adjustmentNote}
+              />
+            </label>
+            <button className="primary-button" type="submit">
+              <Plus size={18} />
+              <span>Add</span>
+            </button>
+          </form>
         </div>
         <button
           className="secondary-button bankroll-edit-button"
           aria-label="Edit bankroll"
-          disabled={!isVisible}
           onClick={startEditing}
           type="button"
         >
@@ -741,6 +796,77 @@ function BankrollManager({ isVisible, onChange, value }) {
           <span>Edit Bankroll</span>
         </button>
       </section>
+
+      <section className="panel">
+        <PanelHeader icon={TableProperties} title="Bankroll History" />
+        <BankrollHistoryTable
+          onDeleteManualTransaction={onDeleteManualTransaction}
+          onDeleteTournament={onDeleteTournament}
+          transactions={transactionHistory}
+        />
+      </section>
+    </div>
+  );
+}
+
+function BankrollHistoryTable({
+  onDeleteManualTransaction,
+  onDeleteTournament,
+  transactions,
+}) {
+  if (transactions.length === 0) {
+    return (
+      <div className="empty-state">
+        <strong>No Bankroll Transactions</strong>
+        <span>Completed MTTs and manual adjustments will appear here.</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="table-wrap bankroll-history-wrap">
+      <table className="bankroll-history-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Entry</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {transactions.map((transaction) => (
+            <tr key={transaction.id}>
+              <td>{formatBankrollTransactionDate(transaction.date)}</td>
+              <td>
+                <div className="event-cell">
+                  <strong>{transaction.title}</strong>
+                  <span>{transaction.detail}</span>
+                </div>
+              </td>
+              <td>{transaction.type}</td>
+              <td className={resultToneClass(transaction.amount, Math.abs(transaction.amount))}>
+                {currency.format(transaction.amount)}
+              </td>
+              <td>
+                <button
+                  className="table-action danger"
+                  onClick={() =>
+                    transaction.source === "manual"
+                      ? onDeleteManualTransaction(transaction.sourceId)
+                      : onDeleteTournament(transaction.sourceId)
+                  }
+                  type="button"
+                >
+                  <Trash2 size={16} />
+                  <span>Delete</span>
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -1960,8 +2086,8 @@ function usePersistentBankroll(portfolioId, completedPnl) {
   const [state, setState] = useState(() => {
     const storedState = readStoredBankroll(storageKey);
     return {
-      baseBankroll: storedState?.baseBankroll ?? DEFAULT_BANKROLL,
       isVisible: storedState?.isVisible ?? true,
+      manualTransactions: storedState?.manualTransactions ?? [],
       storageKey,
     };
   });
@@ -1969,8 +2095,8 @@ function usePersistentBankroll(portfolioId, completedPnl) {
   useEffect(() => {
     const storedState = readStoredBankroll(storageKey);
     setState({
-      baseBankroll: storedState?.baseBankroll ?? DEFAULT_BANKROLL,
       isVisible: storedState?.isVisible ?? true,
+      manualTransactions: storedState?.manualTransactions ?? [],
       storageKey,
     });
   }, [storageKey]);
@@ -1981,10 +2107,10 @@ function usePersistentBankroll(portfolioId, completedPnl) {
       localStorage.setItem(
         storageKey,
         JSON.stringify({
-          baseBankroll: state.baseBankroll,
           isVisible: state.isVisible,
+          manualTransactions: state.manualTransactions,
           updatedAt: new Date().toISOString(),
-          version: 1,
+          version: 2,
         }),
       );
     } catch {
@@ -1992,12 +2118,43 @@ function usePersistentBankroll(portfolioId, completedPnl) {
     }
   }, [state, storageKey]);
 
-  const bankrollValue = state.baseBankroll + completedPnl;
+  const manualTotal = state.manualTransactions.reduce(
+    (sum, transaction) => sum + transaction.amount,
+    0,
+  );
+  const bankrollValue = manualTotal + completedPnl;
 
   function setBankrollValue(nextValue) {
+    const adjustmentAmount = roundToCents(nextValue - bankrollValue);
+    if (adjustmentAmount === 0) return;
     setState((currentState) => ({
       ...currentState,
-      baseBankroll: nextValue - completedPnl,
+      manualTransactions: [
+        createManualBankrollTransaction({
+          amount: adjustmentAmount,
+          description: "Bankroll edit",
+        }),
+        ...currentState.manualTransactions,
+      ],
+    }));
+  }
+
+  function addManualBankrollTransaction(transaction) {
+    setState((currentState) => ({
+      ...currentState,
+      manualTransactions: [
+        createManualBankrollTransaction(transaction),
+        ...currentState.manualTransactions,
+      ],
+    }));
+  }
+
+  function deleteManualBankrollTransaction(id) {
+    setState((currentState) => ({
+      ...currentState,
+      manualTransactions: currentState.manualTransactions.filter(
+        (transaction) => transaction.id !== id,
+      ),
     }));
   }
 
@@ -2009,8 +2166,11 @@ function usePersistentBankroll(portfolioId, completedPnl) {
   }
 
   return {
+    addManualBankrollTransaction,
     bankrollValue,
+    deleteManualBankrollTransaction,
     isBankrollVisible: state.isVisible,
+    manualBankrollTransactions: state.manualTransactions,
     setBankrollValue,
     toggleBankrollVisibility,
   };
@@ -2050,10 +2210,33 @@ function readStoredBankroll(storageKey) {
     const stored = localStorage.getItem(storageKey);
     if (!stored) return null;
     const parsed = JSON.parse(stored);
+    if (Array.isArray(parsed.manualTransactions)) {
+      return {
+        isVisible:
+          typeof parsed.isVisible === "boolean" ? parsed.isVisible : true,
+        manualTransactions: normalizeManualBankrollTransactions(
+          parsed.manualTransactions,
+        ),
+      };
+    }
+
+    const legacyBaseBankroll = toNumber(parsed.baseBankroll);
+    const legacyTransactions =
+      legacyBaseBankroll === 0
+        ? []
+        : [
+            createManualBankrollTransaction({
+              amount: legacyBaseBankroll,
+              createdAt: parsed.updatedAt,
+              description: "Opening bankroll",
+              id: "legacy-opening-bankroll",
+            }),
+          ];
+
     return {
-      baseBankroll: toNumber(parsed.baseBankroll),
       isVisible:
         typeof parsed.isVisible === "boolean" ? parsed.isVisible : true,
+      manualTransactions: legacyTransactions,
     };
   } catch {
     return null;
@@ -2383,6 +2566,53 @@ function exportToExcel(results, options) {
   URL.revokeObjectURL(url);
 }
 
+function buildBankrollHistory(manualTransactions, completedResults) {
+  const manualHistory = manualTransactions.map((transaction) => ({
+    amount: transaction.amount,
+    date: transaction.createdAt,
+    detail: transaction.description,
+    id: `manual-${transaction.id}`,
+    source: "manual",
+    sourceId: transaction.id,
+    title: transaction.amount >= 0 ? "Manual Deposit" : "Manual Withdrawal",
+    type: "Manual",
+  }));
+  const tournamentHistory = completedResults.map((result) => ({
+    amount: getNet(result),
+    date: parseDateTime(result).toISOString(),
+    detail: `${result.venue} · Buyin ${currency.format(result.buyIn)} · Rake ${currency.format(result.rake)}`,
+    id: `tournament-${result.id}`,
+    source: "tournament",
+    sourceId: result.id,
+    title: result.event,
+    type: "Tournament",
+  }));
+
+  return [...manualHistory, ...tournamentHistory].sort(
+    (a, b) => new Date(b.date) - new Date(a.date),
+  );
+}
+
+function createManualBankrollTransaction({
+  amount,
+  createdAt,
+  description,
+  id,
+}) {
+  return {
+    amount: roundToCents(toNumber(amount)),
+    createdAt: createdAt || new Date().toISOString(),
+    description: description?.trim() || "Manual adjustment",
+    id: id || crypto.randomUUID(),
+  };
+}
+
+function normalizeManualBankrollTransactions(transactions) {
+  return transactions
+    .map((transaction) => createManualBankrollTransaction(transaction))
+    .filter((transaction) => transaction.amount !== 0);
+}
+
 function sortResults(results) {
   return [...results].sort((a, b) => parseDateTime(b) - parseDateTime(a));
 }
@@ -2408,6 +2638,10 @@ function formatInputNumber(value) {
 
 function roundToOneDecimal(value) {
   return Math.round(value * 10) / 10;
+}
+
+function roundToCents(value) {
+  return Math.round(value * 100) / 100;
 }
 
 function formatOneDecimal(value) {
@@ -2448,6 +2682,16 @@ function formatShortDate(value) {
     day: "2-digit",
     month: "short",
   }).format(parseDate(value));
+}
+
+function formatBankrollTransactionDate(value) {
+  return new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    hour: "numeric",
+    minute: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
 }
 
 function formatScheduleTiming(result) {

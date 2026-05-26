@@ -413,26 +413,16 @@ h2 {
 
 .bankroll-manager-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 0.7fr) minmax(220px, 1fr);
+  grid-template-columns: minmax(220px, 0.65fr) minmax(420px, 1fr);
   gap: 14px;
   align-items: end;
 }
 
-.bankroll-manager-grid > div {
+.bankroll-adjustment-form {
   display: grid;
-  gap: 7px;
-  min-height: 68px;
-  align-content: center;
-  border: 1px solid #e3ebe5;
-  border-radius: 8px;
-  padding: 11px 12px;
-  background: #fbfcfa;
-}
-
-.bankroll-manager-grid strong {
-  color: #111816;
-  font-size: 1.6rem;
-  line-height: 1;
+  grid-template-columns: minmax(160px, 0.7fr) minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
 }
 
 .bankroll-edit-field input:disabled {
@@ -448,6 +438,11 @@ h2 {
 
 .bankroll-edit-button {
   justify-self: start;
+}
+
+.bankroll-history-wrap table,
+.bankroll-history-table {
+  min-width: 860px;
 }
 
 .metric-grid {
@@ -1413,6 +1408,8 @@ td {
 
   .metric-grid,
   .bankroll-panel,
+  .bankroll-manager-grid,
+  .bankroll-adjustment-form,
   .period-list,
   .schedule-grid,
   .ledger-filter-row,
