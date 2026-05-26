@@ -308,8 +308,10 @@ h2 {
 }
 
 .primary-button svg,
+.primary-button path,
 .primary-button span {
-  color: #ffffff;
+  color: #ffffff !important;
+  stroke: #ffffff;
 }
 
 .primary-button:disabled {
@@ -318,6 +320,13 @@ h2 {
   border-color: #6fa092;
   color: #ffffff;
   opacity: 1;
+}
+
+.primary-button:disabled svg,
+.primary-button:disabled path,
+.primary-button:disabled span {
+  color: #ffffff !important;
+  stroke: #ffffff;
 }
 
 .danger-button {
