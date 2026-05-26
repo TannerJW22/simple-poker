@@ -107,6 +107,8 @@ const seedResults = [
 
 const portfolios = {
   drew: {
+    bankrollStorageKey: "simple-poker-bankroll-drew-v2",
+    defaultBankroll: 0,
     defaultResults: [],
     initials: "DM",
     name: "Drew Martel",
@@ -114,6 +116,7 @@ const portfolios = {
     storageKey: "simple-poker-results-drew-v1",
   },
   sample: {
+    defaultBankroll: 0,
     defaultResults: seedResults,
     initials: "SP",
     name: "Sample",
@@ -2017,14 +2020,33 @@ function Field({ label, onChange, value, ...props }) {
 function usePersistentResults(portfolioId) {
   const portfolio = portfolios[portfolioId] ?? portfolios.drew;
   const [state, setState] = useState(() => {
-    const results = readStoredResults(portfolio.storageKey) ?? portfolio.defaultResults;
+    const results = promoteElapsedScheduledResults(
+      readStoredResults(portfolio.storageKey) ?? portfolio.defaultResults,
+    );
     return { results, storageKey: portfolio.storageKey };
   });
 
   useEffect(() => {
-    const results = readStoredResults(portfolio.storageKey) ?? portfolio.defaultResults;
+    const results = promoteElapsedScheduledResults(
+      readStoredResults(portfolio.storageKey) ?? portfolio.defaultResults,
+    );
     setState({ results, storageKey: portfolio.storageKey });
   }, [portfolio.defaultResults, portfolio.storageKey]);
+
+  useEffect(() => {
+    function promoteScheduledResults() {
+      setState((currentState) => {
+        if (currentState.storageKey !== portfolio.storageKey) return currentState;
+        const results = promoteElapsedScheduledResults(currentState.results);
+        if (results === currentState.results) return currentState;
+        return { ...currentState, results };
+      });
+    }
+
+    promoteScheduledResults();
+    const intervalId = window.setInterval(promoteScheduledResults, 60000);
+    return () => window.clearInterval(intervalId);
+  }, [portfolio.storageKey]);
 
   useEffect(() => {
     if (state.storageKey !== portfolio.storageKey) return;
@@ -2045,8 +2067,9 @@ function usePersistentResults(portfolioId) {
   function setResults(update) {
     setState((currentState) => ({
       ...currentState,
-      results:
+      results: promoteElapsedScheduledResults(
         typeof update === "function" ? update(currentState.results) : update,
+      ),
     }));
   }
 
@@ -2097,12 +2120,26 @@ function usePersistentOptions(portfolioId, type, defaultOptions) {
 
 function usePersistentBankroll(portfolioId, completedPnl) {
   const portfolio = portfolios[portfolioId] ?? portfolios.drew;
-  const storageKey = `${portfolio.storageKey}-bankroll`;
+  const storageKey = portfolio.bankrollStorageKey ?? `${portfolio.storageKey}-bankroll`;
+  const defaultBankroll = portfolio.defaultBankroll ?? DEFAULT_BANKROLL;
+  const defaultManualTransactions = useMemo(
+    () =>
+      defaultBankroll === 0
+        ? []
+        : [
+            createManualBankrollTransaction({
+              amount: defaultBankroll,
+              description: "Opening bankroll",
+              id: "default-opening-bankroll",
+            }),
+          ],
+    [defaultBankroll],
+  );
   const [state, setState] = useState(() => {
     const storedState = readStoredBankroll(storageKey);
     return {
       isVisible: storedState?.isVisible ?? true,
-      manualTransactions: storedState?.manualTransactions ?? [],
+      manualTransactions: storedState?.manualTransactions ?? defaultManualTransactions,
       storageKey,
     };
   });
@@ -2111,10 +2148,10 @@ function usePersistentBankroll(portfolioId, completedPnl) {
     const storedState = readStoredBankroll(storageKey);
     setState({
       isVisible: storedState?.isVisible ?? true,
-      manualTransactions: storedState?.manualTransactions ?? [],
+      manualTransactions: storedState?.manualTransactions ?? defaultManualTransactions,
       storageKey,
     });
-  }, [storageKey]);
+  }, [defaultManualTransactions, storageKey]);
 
   useEffect(() => {
     if (state.storageKey !== storageKey) return;
@@ -2297,6 +2334,17 @@ function normalizeStatus(status) {
     return status;
   }
   return "completed";
+}
+
+function promoteElapsedScheduledResults(results, now = new Date()) {
+  let didPromote = false;
+  const promotedResults = results.map((result) => {
+    if (normalizeStatus(result.status) !== "pending") return result;
+    if (parseDateTime(result) > now) return result;
+    didPromote = true;
+    return { ...result, status: "live" };
+  });
+  return didPromote ? sortResults(promotedResults) : results;
 }
 
 function inferFinalTable(result, shouldMigrateSeedMetadata = false) {
