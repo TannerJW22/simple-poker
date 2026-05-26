@@ -524,6 +524,21 @@ td {
   gap: 3px;
 }
 
+.date-cell {
+  display: grid;
+  gap: 3px;
+}
+
+.date-cell span {
+  color: #24342e;
+}
+
+.date-cell small {
+  color: #6b7872;
+  font-size: 0.8rem;
+  line-height: 1.25;
+}
+
 .event-cell strong {
   color: #18231f;
   font-size: 0.94rem;

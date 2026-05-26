@@ -129,6 +129,7 @@ const portfolioOptions = Object.entries(portfolios).map(([id, portfolio]) => ({
 
 const emptyForm = {
   date: toDateInputValue(new Date()),
+  time: toTimeInputValue(new Date()),
   event: "",
   venue: "",
   format: "Live",
@@ -157,6 +158,12 @@ const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
   maximumFractionDigits: 2,
+});
+
+const cardCurrency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 0,
 });
 
 const dashboardRangeOptions = [
@@ -515,6 +522,7 @@ function App() {
             searchTerm=""
             showReset={false}
             showResultTypeFilter={false}
+            showScheduleTiming
             title="Scheduled Tournaments"
             venueOptions={venueOptions}
           />
@@ -607,25 +615,25 @@ function Dashboard({
         <Metric
           icon={DollarSign}
           label="Buyins"
-          value={currency.format(totals.buyIns)}
-          detail={`ABI: ${currency.format(totals.averageBuyIn)}`}
+          value={cardCurrency.format(totals.buyIns)}
+          detail={`ABI: ${cardCurrency.format(totals.averageBuyIn)}`}
         />
         <Metric
           icon={Percent}
           label="Rake Paid"
-          value={currency.format(totals.rake)}
+          value={cardCurrency.format(totals.rake)}
           detail={`${formatPercent(totals.rakePercent)} Rake`}
         />
         <Metric
           icon={Trophy}
           label="Cashes"
-          value={currency.format(totals.cashes)}
+          value={cardCurrency.format(totals.cashes)}
           detail={`${formatPercent(totals.itmPercent)} ITM`}
         />
         <Metric
           icon={TrendingUp}
           label="Net Result"
-          value={currency.format(totals.net)}
+          value={cardCurrency.format(totals.net)}
           detail={formatAbiNet(totals)}
           valueToneClass={resultToneClass(totals.net, totals.completedInvestment)}
           positive
@@ -712,6 +720,7 @@ function Ledger({
   searchTerm,
   showReset = true,
   showResultTypeFilter = true,
+  showScheduleTiming = false,
   title = "Tournament Results",
   venueOptions,
 }) {
@@ -788,6 +797,7 @@ function Ledger({
           onDelete={onDelete}
           onEdit={onEdit}
           results={filteredResults}
+          showScheduleTiming={showScheduleTiming}
         />
       </section>
 
@@ -937,6 +947,13 @@ function EntryForm({
             required
             type="date"
             value={form.date}
+          />
+          <Field
+            label="Time"
+            onChange={(value) => updateField("time", value)}
+            step="900"
+            type="time"
+            value={form.time}
           />
           <label className="field">
             <span>Format</span>
@@ -1092,7 +1109,7 @@ function PanelHeader({ icon: Icon, title, actionLabel }) {
   );
 }
 
-function TournamentTable({ onDelete, onEdit, results }) {
+function TournamentTable({ onDelete, onEdit, results, showScheduleTiming = false }) {
   if (results.length === 0) {
     return (
       <div className="empty-state">
@@ -1127,7 +1144,12 @@ function TournamentTable({ onDelete, onEdit, results }) {
             const roi = getRoi(item);
             return (
               <tr key={item.id}>
-                <td>{formatShortDate(item.date)}</td>
+                <td>
+                  <div className="date-cell">
+                    <span>{formatShortDate(item.date)}</span>
+                    {showScheduleTiming && <small>{formatScheduleTiming(item)}</small>}
+                  </div>
+                </td>
                 <td>
                   <div className="event-cell">
                     <strong>{item.event}</strong>
@@ -1783,7 +1805,8 @@ function ScheduleColumn({ emptyText, label, results, status }) {
                 <div>
                   <strong>{result.event}</strong>
                   <span>
-                    {formatShortDate(result.date)} · {result.venue}
+                    {formatShortDate(result.date)} · {formatScheduleTiming(result)} ·{" "}
+                    {result.venue}
                   </span>
                 </div>
                 <div className="schedule-meta">
@@ -2013,6 +2036,7 @@ function resultToForm(result) {
     finalTable: inferFinalTable(result),
     rake: String(result.rake ?? ""),
     status: normalizeStatus(result.status || "completed"),
+    time: result.time || "",
   };
 }
 
@@ -2020,6 +2044,7 @@ function normalizeResult(result, options = {}) {
   return {
     id: result.id,
     date: result.date || toDateInputValue(new Date()),
+    time: normalizeTime(result.time),
     event: result.event?.trim() || "Untitled MTT",
     venue: result.venue?.trim() || "Unknown",
     format: result.format || "Live",
@@ -2267,6 +2292,7 @@ function filterResultsByDashboardRange(results, range) {
 function exportToExcel(results, options) {
   const columns = [
     "Date",
+    "Time",
     "Event",
     "Venue",
     "Format",
@@ -2295,6 +2321,7 @@ function exportToExcel(results, options) {
       ROI: `${formatOneDecimal(getRoi(result))}%`,
       Rake: result.rake,
       Status: formatStatus(result.status),
+      Time: result.time,
       Venue: result.venue,
     };
     return columns.map((column) => escapeHtml(row[column] ?? "")).join("</td><td>");
@@ -2323,7 +2350,7 @@ function exportToExcel(results, options) {
 }
 
 function sortResults(results) {
-  return [...results].sort((a, b) => parseDate(b.date) - parseDate(a.date));
+  return [...results].sort((a, b) => parseDateTime(b) - parseDateTime(a));
 }
 
 function getNet(result) {
@@ -2389,9 +2416,38 @@ function formatShortDate(value) {
   }).format(parseDate(value));
 }
 
+function formatScheduleTiming(result) {
+  if (!result.time) return "Time TBD";
+  return `${formatLocalTime(result)} · ${formatRelativeHours(result)}`;
+}
+
+function formatLocalTime(result) {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(parseDateTime(result));
+}
+
+function formatRelativeHours(result) {
+  const hourDifference = (parseDateTime(result) - new Date()) / 3600000;
+  const absoluteHours = Math.abs(hourDifference);
+  const roundedHours = Math.round(absoluteHours);
+  const hourLabel =
+    roundedHours < 1
+      ? "<1 hour"
+      : `${roundedHours} ${roundedHours === 1 ? "hour" : "hours"}`;
+  return hourDifference >= 0 ? `in ${hourLabel}` : `${hourLabel} ago`;
+}
+
 function parseDate(value) {
   const [year, month, day] = value.split("-").map(Number);
   return startOfDay(new Date(year, month - 1, day));
+}
+
+function parseDateTime(result) {
+  const [year, month, day] = result.date.split("-").map(Number);
+  const [hour = 0, minute = 0] = normalizeTime(result.time).split(":").map(Number);
+  return new Date(year, month - 1, day, hour, minute);
 }
 
 function startOfDay(date) {
@@ -2409,6 +2465,21 @@ function toDateInputValue(date) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function toTimeInputValue(date) {
+  const hour = String(date.getHours()).padStart(2, "0");
+  const minute = String(date.getMinutes()).padStart(2, "0");
+  return `${hour}:${minute}`;
+}
+
+function normalizeTime(value) {
+  if (typeof value !== "string") return "";
+  const match = value.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return "";
+  const hour = Math.min(Number(match[1]), 23);
+  const minute = Math.min(Number(match[2]), 59);
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function escapeHtml(value) {
