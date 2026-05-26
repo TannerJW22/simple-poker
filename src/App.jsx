@@ -4,6 +4,8 @@ import {
   ChevronDown,
   Copy,
   DollarSign,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   Filter,
   LayoutDashboard,
@@ -23,6 +25,7 @@ import {
 } from "lucide-react";
 
 const ACTIVE_PORTFOLIO_KEY = "simple-poker-active-portfolio-v1";
+const DEFAULT_BANKROLL = 0;
 
 const seedResults = [
   {
@@ -207,6 +210,17 @@ function App() {
   const [editingResult, setEditingResult] = useState(null);
   const [dashboardRange, setDashboardRange] = useState("all");
   const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
+  const finishedPnl = useMemo(
+    () =>
+      summarizeResults(results.filter((result) => result.status === "completed")).net,
+    [results],
+  );
+  const {
+    bankrollValue,
+    isBankrollVisible,
+    setBankrollValue,
+    toggleBankrollVisibility,
+  } = usePersistentBankroll(portfolioId, finishedPnl);
 
   const todayLabel = useMemo(
     () =>
@@ -483,7 +497,14 @@ function App() {
         </header>
 
         {screen === "dashboard" && (
-          <Dashboard scheduleGroups={scheduleGroups} totals={totals} />
+          <Dashboard
+            bankrollValue={bankrollValue}
+            isBankrollVisible={isBankrollVisible}
+            onBankrollChange={setBankrollValue}
+            onToggleBankrollVisibility={toggleBankrollVisibility}
+            scheduleGroups={scheduleGroups}
+            totals={totals}
+          />
         )}
         {screen === "schedule" && (
           <Ledger
@@ -565,9 +586,23 @@ function screenTitle(screen, editingResult) {
   return "";
 }
 
-function Dashboard({ scheduleGroups, totals }) {
+function Dashboard({
+  bankrollValue,
+  isBankrollVisible,
+  onBankrollChange,
+  onToggleBankrollVisibility,
+  scheduleGroups,
+  totals,
+}) {
   return (
     <div className="screen-stack">
+      <BankrollPanel
+        isVisible={isBankrollVisible}
+        onChange={onBankrollChange}
+        onToggleVisibility={onToggleBankrollVisibility}
+        value={bankrollValue}
+      />
+
       <section className="metric-grid" aria-label="Tournament summary">
         <Metric
           icon={DollarSign}
@@ -592,7 +627,7 @@ function Dashboard({ scheduleGroups, totals }) {
           label="Net Result"
           value={currency.format(totals.net)}
           detail={formatAbiNet(totals)}
-          valueToneClass={resultToneClass(totals.net, totals.buyIns)}
+          valueToneClass={resultToneClass(totals.net, totals.completedInvestment)}
           positive
         />
         <Metric
@@ -612,6 +647,59 @@ function Dashboard({ scheduleGroups, totals }) {
         </div>
       </section>
     </div>
+  );
+}
+
+function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
+  const [draftValue, setDraftValue] = useState(() => formatInputNumber(value));
+
+  useEffect(() => {
+    setDraftValue(formatInputNumber(value));
+  }, [value]);
+
+  function commitValue(nextValue) {
+    const numericValue = Number(nextValue);
+    if (nextValue === "" || !Number.isFinite(numericValue)) {
+      setDraftValue(formatInputNumber(value));
+      return;
+    }
+
+    onChange(numericValue);
+  }
+
+  return (
+    <section className="bankroll-panel" aria-label="Bankroll">
+      <div>
+        <span>Bankroll</span>
+        <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
+      </div>
+      <label className="bankroll-input">
+        <span>$</span>
+        <input
+          disabled={!isVisible}
+          inputMode="decimal"
+          onBlur={(event) => commitValue(event.target.value)}
+          onChange={(event) => setDraftValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur();
+            }
+          }}
+          placeholder={isVisible ? "0.00" : "Hidden"}
+          step="0.01"
+          type="number"
+          value={isVisible ? draftValue : ""}
+        />
+      </label>
+      <button
+        aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
+        className="icon-button"
+        onClick={onToggleVisibility}
+        type="button"
+      >
+        {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </section>
   );
 }
 
@@ -941,7 +1029,7 @@ function EntryForm({
 
       <aside className="result-preview">
         <p className="eyebrow">Projected Entry</p>
-        <h2 className={resultToneClass(previewNet, preview.buyIn)}>
+        <h2 className={resultToneClass(previewNet, getInvestment(preview))}>
           {currency.format(previewNet)}
         </h2>
         <div className="preview-row">
@@ -958,7 +1046,7 @@ function EntryForm({
         </div>
         <div className="preview-row total">
           <span>Net Result</span>
-          <strong className={resultToneClass(previewNet, preview.buyIn)}>
+          <strong className={resultToneClass(previewNet, getInvestment(preview))}>
             {currency.format(previewNet)}
           </strong>
         </div>
@@ -1058,7 +1146,9 @@ function TournamentTable({ onDelete, onEdit, results }) {
                 <td>{item.finish || "-"}</td>
                 <td>{currency.format(item.cash)}</td>
                 <td>{item.finalTable ? "Yes" : "No"}</td>
-                <td className={resultToneClass(net, item.buyIn)}>{currency.format(net)}</td>
+                <td className={resultToneClass(net, getInvestment(item))}>
+                  {currency.format(net)}
+                </td>
                 <td className={toneClass(roi)}>{formatOneDecimal(roi)}%</td>
                 <td>
                   <p className="table-note">{item.notes || "No notes yet."}</p>
@@ -1699,7 +1789,7 @@ function ScheduleColumn({ emptyText, label, results, status }) {
                 <div className="schedule-meta">
                   <span>{currency.format(result.buyIn)}</span>
                   {result.status === "completed" && (
-                    <strong className={resultToneClass(net, result.buyIn)}>
+                    <strong className={resultToneClass(net, getInvestment(result))}>
                       {currency.format(net)}
                     </strong>
                   )}
@@ -1807,6 +1897,68 @@ function usePersistentOptions(portfolioId, type, defaultOptions) {
   return [state.options, setOptions];
 }
 
+function usePersistentBankroll(portfolioId, completedPnl) {
+  const portfolio = portfolios[portfolioId] ?? portfolios.drew;
+  const storageKey = `${portfolio.storageKey}-bankroll`;
+  const [state, setState] = useState(() => {
+    const storedState = readStoredBankroll(storageKey);
+    return {
+      baseBankroll: storedState?.baseBankroll ?? DEFAULT_BANKROLL,
+      isVisible: storedState?.isVisible ?? true,
+      storageKey,
+    };
+  });
+
+  useEffect(() => {
+    const storedState = readStoredBankroll(storageKey);
+    setState({
+      baseBankroll: storedState?.baseBankroll ?? DEFAULT_BANKROLL,
+      isVisible: storedState?.isVisible ?? true,
+      storageKey,
+    });
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (state.storageKey !== storageKey) return;
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          baseBankroll: state.baseBankroll,
+          isVisible: state.isVisible,
+          updatedAt: new Date().toISOString(),
+          version: 1,
+        }),
+      );
+    } catch {
+      // localStorage can be unavailable in restricted browser contexts.
+    }
+  }, [state, storageKey]);
+
+  const bankrollValue = state.baseBankroll + completedPnl;
+
+  function setBankrollValue(nextValue) {
+    setState((currentState) => ({
+      ...currentState,
+      baseBankroll: nextValue - completedPnl,
+    }));
+  }
+
+  function toggleBankrollVisibility() {
+    setState((currentState) => ({
+      ...currentState,
+      isVisible: !currentState.isVisible,
+    }));
+  }
+
+  return {
+    bankrollValue,
+    isBankrollVisible: state.isVisible,
+    setBankrollValue,
+    toggleBankrollVisibility,
+  };
+}
+
 function readStoredResults(storageKey) {
   try {
     const stored = localStorage.getItem(storageKey);
@@ -1831,6 +1983,21 @@ function readStoredOptions(storageKey, type) {
     const parsed = JSON.parse(stored);
     if (!Array.isArray(parsed.options)) return null;
     return normalizeOptions(type, parsed.options);
+  } catch {
+    return null;
+  }
+}
+
+function readStoredBankroll(storageKey) {
+  try {
+    const stored = localStorage.getItem(storageKey);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored);
+    return {
+      baseBankroll: toNumber(parsed.baseBankroll),
+      isVisible:
+        typeof parsed.isVisible === "boolean" ? parsed.isVisible : true,
+    };
   } catch {
     return null;
   }
@@ -1915,14 +2082,21 @@ function formatSignedNumber(value) {
 function summarizeResults(results) {
   const buyIns = results.reduce((sum, item) => sum + item.buyIn, 0);
   const rake = results.reduce((sum, item) => sum + item.rake, 0);
-  const cashes = results.reduce((sum, item) => sum + item.cash, 0);
-  const entries = results.length;
-  const net = cashes - buyIns;
-  const roi = buyIns > 0 ? roundToOneDecimal((net / buyIns) * 100) : 0;
-  const rakePercent = buyIns > 0 ? (rake / buyIns) * 100 : 0;
-  const cashesCount = results.filter((item) => item.cash > 0).length;
-  const finalTables = results.filter((item) => item.finalTable).length;
   const completedResults = results.filter((item) => item.status === "completed");
+  const completedInvestment = completedResults.reduce(
+    (sum, item) => sum + getInvestment(item),
+    0,
+  );
+  const cashes = completedResults.reduce((sum, item) => sum + item.cash, 0);
+  const entries = results.length;
+  const net = completedResults.reduce((sum, item) => sum + getNet(item), 0);
+  const roi =
+    completedInvestment > 0
+      ? roundToOneDecimal((net / completedInvestment) * 100)
+      : 0;
+  const rakePercent = buyIns > 0 ? (rake / buyIns) * 100 : 0;
+  const cashesCount = completedResults.filter((item) => item.cash > 0).length;
+  const finalTables = completedResults.filter((item) => item.finalTable).length;
   const scheduledCount = results.filter((item) => item.status === "pending").length;
   const liveCount = results.filter((item) => item.status === "live").length;
   const completedCount = results.filter((item) => item.status === "completed").length;
@@ -1940,6 +2114,7 @@ function summarizeResults(results) {
     cashes,
     cashesCount,
     completedCount,
+    completedInvestment,
     entries,
     finalTables,
     itmPercent,
@@ -2152,13 +2327,22 @@ function sortResults(results) {
 }
 
 function getNet(result) {
-  return result.cash - result.buyIn;
+  return result.cash - getInvestment(result);
 }
 
 function getRoi(result) {
-  return result.buyIn > 0
-    ? roundToOneDecimal((getNet(result) / result.buyIn) * 100)
+  const investment = getInvestment(result);
+  return investment > 0
+    ? roundToOneDecimal((getNet(result) / investment) * 100)
     : 0;
+}
+
+function getInvestment(result) {
+  return result.buyIn + result.rake;
+}
+
+function formatInputNumber(value) {
+  return Number.isFinite(value) ? String(Math.round(value * 100) / 100) : "";
 }
 
 function roundToOneDecimal(value) {
