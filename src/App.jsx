@@ -669,7 +669,7 @@ function BankrollPanel({ isVisible, onToggleVisibility, value }) {
     <section className="bankroll-panel" aria-label="Bankroll">
       <div className="bankroll-readout">
         <span>Bankroll</span>
-        <strong>{isVisible ? currency.format(value) : "••••••"}</strong>
+        <strong>{isVisible ? cardCurrency.format(value) : "••••••"}</strong>
       </div>
       <button
         aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
@@ -723,6 +723,10 @@ function BankrollManager({
     setIsEditing(true);
   }
 
+  function saveEditing() {
+    commitValue(draftValue);
+  }
+
   function handleAdjustmentSubmit(event) {
     event.preventDefault();
     const amount = Number(adjustmentAmount);
@@ -746,11 +750,10 @@ function BankrollManager({
               aria-label="Bankroll amount"
               disabled={!isEditing}
               inputMode="decimal"
-              onBlur={(event) => commitValue(event.target.value)}
               onChange={(event) => setDraftValue(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
-                  event.currentTarget.blur();
+                  commitValue(event.currentTarget.value);
                 }
               }}
               placeholder="0.00"
@@ -762,11 +765,11 @@ function BankrollManager({
           </label>
           <form className="bankroll-adjustment-form" onSubmit={handleAdjustmentSubmit}>
             <label className="field">
-              <span>Manual Adjustment</span>
+              <span>Adjustment</span>
               <input
                 inputMode="decimal"
                 onChange={(event) => setAdjustmentAmount(event.target.value)}
-                placeholder="Deposit or withdrawal"
+                placeholder="+/-"
                 step="0.01"
                 type="number"
                 value={adjustmentAmount}
@@ -786,15 +789,27 @@ function BankrollManager({
             </button>
           </form>
         </div>
-        <button
-          className="secondary-button bankroll-edit-button"
-          aria-label="Edit bankroll"
-          onClick={startEditing}
-          type="button"
-        >
-          <Pencil size={16} />
-          <span>Edit Bankroll</span>
-        </button>
+        {isEditing ? (
+          <button
+            className="primary-button bankroll-edit-button"
+            aria-label="Save bankroll"
+            onClick={saveEditing}
+            type="button"
+          >
+            <Save size={16} />
+            <span>Save Bankroll</span>
+          </button>
+        ) : (
+          <button
+            className="secondary-button bankroll-edit-button"
+            aria-label="Edit bankroll"
+            onClick={startEditing}
+            type="button"
+          >
+            <Pencil size={16} />
+            <span>Edit Bankroll</span>
+          </button>
+        )}
       </section>
 
       <section className="panel">

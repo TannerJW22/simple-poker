@@ -307,9 +307,17 @@ h2 {
   font-weight: 750;
 }
 
+.primary-button svg,
+.primary-button span {
+  color: #ffffff;
+}
+
 .primary-button:disabled {
   cursor: not-allowed;
-  opacity: 0.5;
+  background: #6fa092;
+  border-color: #6fa092;
+  color: #ffffff;
+  opacity: 1;
 }
 
 .danger-button {
@@ -360,7 +368,7 @@ h2 {
   justify-content: space-between;
   gap: 8px;
   flex: 0 0 auto;
-  width: clamp(152px, 13.6vw, 192px);
+  width: clamp(167px, 15vw, 211px);
   min-height: 42px;
   border: 1px solid #dce4dd;
   border-radius: 8px;
@@ -385,7 +393,8 @@ h2 {
 
 .bankroll-readout strong {
   color: #111816;
-  font-size: 1.12rem;
+  font-size: 1.26rem;
+  font-weight: 900;
   line-height: 1;
 }
 
@@ -429,6 +438,12 @@ h2 {
   border-color: transparent;
   background: transparent;
   cursor: not-allowed;
+}
+
+.bankroll-edit-field input {
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
 }
 
 .bankroll-edit-field.editing input {
