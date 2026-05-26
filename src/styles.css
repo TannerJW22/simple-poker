@@ -1356,6 +1356,11 @@ td {
   line-height: 1.4;
 }
 
+.reset-options {
+  display: grid;
+  gap: 10px;
+}
+
 .modal-actions {
   justify-content: flex-end;
 }

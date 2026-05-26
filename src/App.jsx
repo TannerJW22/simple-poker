@@ -316,9 +316,17 @@ function App() {
     );
   }
 
-  function handleResetTracker() {
-    setResults([]);
-    setSearchTerm("");
+  function handleResetTracker(target) {
+    if (target === "mtts" || target === "all") {
+      setResults([]);
+      setSearchTerm("");
+    }
+    if (target === "events" || target === "all") {
+      setEventOptions(normalizeOptions("events", defaultEventOptions));
+    }
+    if (target === "venues" || target === "all") {
+      setVenueOptions(normalizeOptions("venues", defaultVenues));
+    }
   }
 
   function handleAddMtt() {
@@ -557,12 +565,14 @@ function App() {
         )}
         {screen === "ledger" && (
           <Ledger
+            eventCount={eventOptions.length}
             eventOptions={eventOptions}
             onDelete={handleDeleteResult}
             onEdit={handleEditResult}
             onReset={handleResetTracker}
             results={results}
             searchTerm={searchTerm}
+            venueCount={venueOptions.length}
             venueOptions={venueOptions}
           />
         )}
@@ -896,6 +906,7 @@ function BankrollHistoryTable({
 }
 
 function Ledger({
+  eventCount = 0,
   eventOptions,
   onDelete,
   onEdit,
@@ -906,6 +917,7 @@ function Ledger({
   showResultTypeFilter = true,
   showScheduleTiming = false,
   title = "Tournament Results",
+  venueCount = 0,
   venueOptions,
 }) {
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -1021,12 +1033,14 @@ function Ledger({
       )}
       {isResetOpen && (
         <ResetTrackerModal
+          eventCount={eventCount}
           onClose={() => setIsResetOpen(false)}
-          onConfirm={() => {
-            onReset();
+          onConfirm={(target) => {
+            onReset(target);
             setIsResetOpen(false);
           }}
           resultCount={results.length}
+          venueCount={venueCount}
         />
       )}
     </div>
@@ -1985,9 +1999,40 @@ function LedgerFilterModal({
   );
 }
 
-function ResetTrackerModal({ onClose, onConfirm, resultCount }) {
+function ResetTrackerModal({
+  eventCount,
+  onClose,
+  onConfirm,
+  resultCount,
+  venueCount,
+}) {
+  const [resetTarget, setResetTarget] = useState("mtts");
   const [confirmationText, setConfirmationText] = useState("");
   const canReset = confirmationText === "RESET";
+  const resetOptions = [
+    {
+      description: `Delete ${resultCount} saved MTT${resultCount === 1 ? "" : "s"}.`,
+      id: "mtts",
+      label: "Just MTTs",
+    },
+    {
+      description: `Reset ${eventCount} managed event${eventCount === 1 ? "" : "s"}. Existing MTTs keep their event names.`,
+      id: "events",
+      label: "Just Events",
+    },
+    {
+      description: `Reset ${venueCount} managed venue${venueCount === 1 ? "" : "s"}. Existing MTTs keep their venue names.`,
+      id: "venues",
+      label: "Just Venues",
+    },
+    {
+      description: "Reset MTTs, events, and venues for this portfolio.",
+      id: "all",
+      label: "Everything",
+    },
+  ];
+  const selectedOption =
+    resetOptions.find((option) => option.id === resetTarget) ?? resetOptions[0];
 
   return (
     <div className="modal-backdrop" role="presentation">
@@ -2013,11 +2058,30 @@ function ResetTrackerModal({ onClose, onConfirm, resultCount }) {
         </header>
 
         <div className="reset-warning">
-          <strong>This will delete {resultCount} saved results.</strong>
+          <strong>{selectedOption.label}</strong>
           <span>
-            This clears the tracker in local storage for this browser. Type RESET
-            to enable the reset button.
+            {selectedOption.description} Type RESET to enable the reset button.
           </span>
+        </div>
+
+        <div className="reset-options" role="radiogroup" aria-label="Reset scope">
+          {resetOptions.map((option) => (
+            <button
+              aria-checked={resetTarget === option.id}
+              className={
+                resetTarget === option.id
+                  ? "filter-option selected"
+                  : "filter-option"
+              }
+              key={option.id}
+              onClick={() => setResetTarget(option.id)}
+              role="radio"
+              type="button"
+            >
+              <strong>{option.label}</strong>
+              <span>{option.description}</span>
+            </button>
+          ))}
         </div>
 
         <label className="field">
@@ -2037,7 +2101,7 @@ function ResetTrackerModal({ onClose, onConfirm, resultCount }) {
           <button
             className="danger-button"
             disabled={!canReset}
-            onClick={onConfirm}
+            onClick={() => onConfirm(resetTarget)}
             type="button"
           >
             <Trash2 size={18} />
