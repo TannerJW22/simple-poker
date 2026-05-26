@@ -148,6 +148,7 @@ const createVenueValue = "__create_venue__";
 
 const screens = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "bankroll", label: "Manage Bankroll", icon: WalletCards },
   { id: "schedule", label: "My Schedule", icon: CalendarDays },
   { id: "ledger", label: "Past Results", icon: TableProperties },
   { id: "events", label: "Manage Events", icon: ReceiptText },
@@ -454,7 +455,6 @@ function App() {
           {screen === "dashboard" && (
             <BankrollPanel
               isVisible={isBankrollVisible}
-              onChange={setBankrollValue}
               onToggleVisibility={toggleBankrollVisibility}
               value={bankrollValue}
             />
@@ -515,6 +515,13 @@ function App() {
           <Dashboard
             scheduleGroups={scheduleGroups}
             totals={totals}
+          />
+        )}
+        {screen === "bankroll" && (
+          <BankrollManager
+            isVisible={isBankrollVisible}
+            onChange={setBankrollValue}
+            value={bankrollValue}
           />
         )}
         {screen === "schedule" && (
@@ -590,6 +597,7 @@ function App() {
 }
 
 function screenTitle(screen, editingResult) {
+  if (screen === "bankroll") return "Manage Bankroll";
   if (screen === "schedule") return "My Schedule";
   if (screen === "ledger") return "Past Results";
   if (screen === "entry") return editingResult ? "Edit MTT" : "Add MTT";
@@ -648,7 +656,26 @@ function Dashboard({ scheduleGroups, totals }) {
   );
 }
 
-function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
+function BankrollPanel({ isVisible, onToggleVisibility, value }) {
+  return (
+    <section className="bankroll-panel" aria-label="Bankroll">
+      <div className="bankroll-readout">
+        <span>Bankroll</span>
+        <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
+      </div>
+      <button
+        aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
+        className="bankroll-eye-button"
+        onClick={onToggleVisibility}
+        type="button"
+      >
+        {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
+    </section>
+  );
+}
+
+function BankrollManager({ isVisible, onChange, value }) {
   const [draftValue, setDraftValue] = useState(() => formatInputNumber(value));
   const [isEditing, setIsEditing] = useState(false);
 
@@ -674,47 +701,47 @@ function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
   }
 
   return (
-    <section className="bankroll-panel" aria-label="Bankroll">
-      <div>
-        <span>Bankroll</span>
-        <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
-      </div>
-      <div className="bankroll-input">
-        <span>$</span>
-        <input
-          aria-label="Bankroll amount"
-          disabled={!isVisible || !isEditing}
-          inputMode="decimal"
-          onBlur={(event) => commitValue(event.target.value)}
-          onChange={(event) => setDraftValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.currentTarget.blur();
-            }
-          }}
-          placeholder={isVisible ? "0.00" : "Hidden"}
-          readOnly={!isEditing}
-          step="0.01"
-          type="number"
-          value={isVisible ? draftValue : ""}
-        />
+    <div className="screen-stack">
+      <section className="panel bankroll-manager">
+        <PanelHeader icon={WalletCards} title="Bankroll Settings" />
+        <div className="bankroll-manager-grid">
+          <div>
+            <span>Current Bankroll</span>
+            <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
+          </div>
+          <label className={isEditing ? "field bankroll-edit-field editing" : "field bankroll-edit-field"}>
+            <span>Bankroll Amount</span>
+            <input
+              aria-label="Bankroll amount"
+              disabled={!isVisible || !isEditing}
+              inputMode="decimal"
+              onBlur={(event) => commitValue(event.target.value)}
+              onChange={(event) => setDraftValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.currentTarget.blur();
+                }
+              }}
+              placeholder={isVisible ? "0.00" : "Hidden"}
+              readOnly={!isEditing}
+              step="0.01"
+              type="number"
+              value={isVisible ? draftValue : ""}
+            />
+          </label>
+        </div>
         <button
+          className="secondary-button bankroll-edit-button"
           aria-label="Edit bankroll"
           disabled={!isVisible}
           onClick={startEditing}
           type="button"
         >
           <Pencil size={16} />
+          <span>Edit Bankroll</span>
         </button>
-        <button
-          aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
-          onClick={onToggleVisibility}
-          type="button"
-        >
-          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
