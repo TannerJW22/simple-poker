@@ -441,6 +441,10 @@ function App() {
             {screen === "dashboard" && (
               <label className="range-select dashboard-range-select">
                 <Filter size={18} />
+                <span>
+                  {dashboardRangeOptions.find(([range]) => range === dashboardRange)?.[1] ??
+                    "All Time"}
+                </span>
                 <select
                   aria-label="Dashboard range"
                   onChange={(event) => setDashboardRange(event.target.value)}
