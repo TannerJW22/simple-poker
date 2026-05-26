@@ -144,6 +144,7 @@ const createVenueValue = "__create_venue__";
 
 const screens = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { id: "schedule", label: "My Schedule", icon: CalendarDays },
   { id: "ledger", label: "Past Results", icon: TableProperties },
   { id: "events", label: "Manage Events", icon: ReceiptText },
   { id: "venues", label: "Manage Venues", icon: MapPin },
@@ -226,6 +227,10 @@ function App() {
   const scheduleGroups = useMemo(
     () => buildScheduleGroups(dashboardResults),
     [dashboardResults],
+  );
+  const scheduledResults = useMemo(
+    () => results.filter((result) => result.status === "pending"),
+    [results],
   );
 
   useEffect(() => {
@@ -482,6 +487,19 @@ function App() {
         {screen === "dashboard" && (
           <Dashboard scheduleGroups={scheduleGroups} totals={totals} />
         )}
+        {screen === "schedule" && (
+          <Ledger
+            eventOptions={eventOptions}
+            onDelete={handleDeleteResult}
+            onEdit={handleEditResult}
+            results={scheduledResults}
+            searchTerm=""
+            showReset={false}
+            showResultTypeFilter={false}
+            title="Scheduled Tournaments"
+            venueOptions={venueOptions}
+          />
+        )}
         {screen === "ledger" && (
           <Ledger
             eventOptions={eventOptions}
@@ -541,6 +559,7 @@ function App() {
 }
 
 function screenTitle(screen, editingResult) {
+  if (screen === "schedule") return "My Schedule";
   if (screen === "ledger") return "Past Results";
   if (screen === "entry") return editingResult ? "Edit MTT" : "Add MTT";
   if (screen === "events") return "Manage Events";
@@ -605,6 +624,9 @@ function Ledger({
   onReset,
   results,
   searchTerm,
+  showReset = true,
+  showResultTypeFilter = true,
+  title = "Tournament Results",
   venueOptions,
 }) {
   const [isExportOpen, setIsExportOpen] = useState(false);
@@ -661,19 +683,21 @@ function Ledger({
             <FileSpreadsheet size={18} />
             <span>Export to Excel</span>
           </button>
-          <button
-            className="danger-button"
-            onClick={() => setIsResetOpen(true)}
-            type="button"
-          >
-            <Trash2 size={18} />
-            <span>Reset Tracker</span>
-          </button>
+          {showReset && (
+            <button
+              className="danger-button"
+              onClick={() => setIsResetOpen(true)}
+              type="button"
+            >
+              <Trash2 size={18} />
+              <span>Reset Tracker</span>
+            </button>
+          )}
         </div>
       </section>
 
       <section className="panel">
-        <PanelHeader icon={TableProperties} title="Tournament Results" />
+        <PanelHeader icon={TableProperties} title={title} />
         <TournamentTable
           onDelete={onDelete}
           onEdit={onEdit}
@@ -710,6 +734,7 @@ function Ledger({
           setMaxBuyIn={setMaxBuyIn}
           setMinBuyIn={setMinBuyIn}
           setVenueFilter={setVenueFilter}
+          showResultTypeFilter={showResultTypeFilter}
           venueFilter={venueFilter}
           venueFilterOptions={venueFilterOptions}
         />
@@ -1435,6 +1460,7 @@ function LedgerFilterModal({
   setMaxBuyIn,
   setMinBuyIn,
   setVenueFilter,
+  showResultTypeFilter = true,
   venueFilter,
   venueFilterOptions,
 }) {
@@ -1462,21 +1488,23 @@ function LedgerFilterModal({
         </header>
 
         <div className="ledger-filter-modal">
-          <div className="filter-group">
-            <span>Result Type</span>
-            <div className="segmented-control" aria-label="Ledger filters">
-              {["All", "Cashed", "Live", "Online"].map((filterName) => (
-                <button
-                  className={filter === filterName ? "selected" : ""}
-                  key={filterName}
-                  onClick={() => setFilter(filterName)}
-                  type="button"
-                >
-                  {filterName}
-                </button>
-              ))}
+          {showResultTypeFilter && (
+            <div className="filter-group">
+              <span>Result Type</span>
+              <div className="segmented-control" aria-label="Ledger filters">
+                {["All", "Cashed", "Live", "Online"].map((filterName) => (
+                  <button
+                    className={filter === filterName ? "selected" : ""}
+                    key={filterName}
+                    onClick={() => setFilter(filterName)}
+                    type="button"
+                  >
+                    {filterName}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <label className="range-select filter-field">
             <CalendarDays size={17} />

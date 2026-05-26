@@ -278,6 +278,12 @@ h2 {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+  text-align: center;
+  text-align-last: center;
+}
+
+.dashboard-range-select option {
+  text-align: center;
 }
 
 .primary-button {
