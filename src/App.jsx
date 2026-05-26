@@ -376,11 +376,28 @@ function App() {
   return (
     <div className="app-shell">
       <aside className="sidebar">
-        <div className="brand">
-          <div className="brand-mark">SP</div>
-          <div>
+        <div className="sidebar-header">
+          <div className="brand">
             <strong>Simple Poker</strong>
           </div>
+
+          <label className="player-card portfolio-select">
+            <div className="avatar">{activePortfolio.initials}</div>
+            <div>
+              <select
+                aria-label="Portfolio"
+                onChange={(event) => handlePortfolioChange(event.target.value)}
+                value={portfolioId}
+              >
+                {portfolioOptions.map((portfolio) => (
+                  <option key={portfolio.id} value={portfolio.id}>
+                    {portfolio.name}
+                  </option>
+                ))}
+              </select>
+              <span>{activePortfolio.subtitle}</span>
+            </div>
+          </label>
         </div>
 
         <nav className="nav-list" aria-label="Mockup screens">
@@ -402,25 +419,6 @@ function App() {
             );
           })}
         </nav>
-
-        <label className="player-card portfolio-select">
-          <div className="avatar">{activePortfolio.initials}</div>
-          <div>
-            <span className="portfolio-label">Portfolio</span>
-            <select
-              aria-label="Portfolio"
-              onChange={(event) => handlePortfolioChange(event.target.value)}
-              value={portfolioId}
-            >
-              {portfolioOptions.map((portfolio) => (
-                <option key={portfolio.id} value={portfolio.id}>
-                  {portfolio.name}
-                </option>
-              ))}
-            </select>
-            <span>{activePortfolio.subtitle}</span>
-          </div>
-        </label>
       </aside>
 
       <main className="workspace">
