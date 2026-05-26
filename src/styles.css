@@ -203,7 +203,7 @@ h1 {
 
 .date-heading h1 {
   max-width: none;
-  font-size: clamp(1.55rem, 2.05vw, 2.08rem);
+  font-size: clamp(1.32rem, 1.74vw, 1.77rem);
   line-height: 1.08;
   white-space: nowrap;
 }
@@ -360,7 +360,7 @@ h2 {
   justify-content: space-between;
   gap: 8px;
   flex: 0 0 auto;
-  width: clamp(190px, 17vw, 240px);
+  width: clamp(152px, 13.6vw, 192px);
   min-height: 42px;
   border: 1px solid #dce4dd;
   border-radius: 8px;
@@ -1432,7 +1432,7 @@ td {
   }
 
   .date-heading h1 {
-    font-size: 1.58rem;
+    font-size: 1.34rem;
     white-space: normal;
   }
 }

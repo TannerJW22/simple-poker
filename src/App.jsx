@@ -669,7 +669,7 @@ function BankrollPanel({ isVisible, onToggleVisibility, value }) {
     <section className="bankroll-panel" aria-label="Bankroll">
       <div className="bankroll-readout">
         <span>Bankroll</span>
-        <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
+        <strong>{isVisible ? currency.format(value) : "••••••"}</strong>
       </div>
       <button
         aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
