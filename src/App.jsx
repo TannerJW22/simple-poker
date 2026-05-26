@@ -137,7 +137,7 @@ const emptyForm = {
   time: "",
   event: "",
   venue: "ACR",
-  format: "Live",
+  format: "Online",
   status: "pending",
   buyIn: "",
   rake: "",
