@@ -1107,12 +1107,21 @@ td {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 12px;
-  align-items: end;
+  align-items: stretch;
   margin-bottom: 18px;
 }
 
 .option-create.event-options {
-  grid-template-columns: minmax(220px, 1fr) minmax(120px, 0.22fr) minmax(120px, 0.22fr) minmax(120px, 0.22fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, 0.22fr) minmax(120px, 0.22fr) minmax(150px, 0.26fr) auto;
+}
+
+.option-create .field {
+  align-self: stretch;
+}
+
+.option-create .field input,
+.option-create .primary-button {
+  height: 64px;
 }
 
 .option-list {
@@ -1146,15 +1155,16 @@ td {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 10px;
+  align-items: stretch;
   width: 100%;
 }
 
 .option-edit.event-options {
-  grid-template-columns: minmax(220px, 1fr) minmax(110px, 0.22fr) minmax(110px, 0.22fr) minmax(120px, 0.22fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(110px, 0.22fr) minmax(110px, 0.22fr) minmax(150px, 0.26fr) auto auto;
 }
 
 .option-edit input {
-  min-height: 42px;
+  min-height: 52px;
   border: 1px solid #d6ded8;
   border-radius: 8px;
   padding: 10px 12px;

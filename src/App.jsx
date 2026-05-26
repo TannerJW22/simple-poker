@@ -1421,22 +1421,48 @@ function OptionManager({
     time: "",
   });
   const isEventManager = label === "Event";
+  const trimmedNewName = newName.trim();
+  const normalizedNewName = trimmedNewName.toLowerCase();
+  const isDuplicateNewName = options.some(
+    (option) => getOptionName(option).toLowerCase() === normalizedNewName,
+  );
+  const hasValidEventDefaults =
+    !isEventManager ||
+    (isOptionalNonNegativeNumber(newBuyIn) &&
+      isOptionalNonNegativeNumber(newRake) &&
+      isOptionalTimeValue(newTime));
+  const canCreate = Boolean(trimmedNewName) && !isDuplicateNewName && hasValidEventDefaults;
+  const trimmedEditingName = editingValue.name.trim();
+  const normalizedEditingName = trimmedEditingName.toLowerCase();
+  const isDuplicateEditingName = options.some((option) => {
+    const optionName = getOptionName(option);
+    return (
+      optionName !== editingName &&
+      optionName.toLowerCase() === normalizedEditingName
+    );
+  });
+  const hasValidEditingDefaults =
+    !isEventManager ||
+    (isOptionalNonNegativeNumber(editingValue.buyIn) &&
+      isOptionalNonNegativeNumber(editingValue.rake) &&
+      isOptionalTimeValue(editingValue.time));
+  const canSaveEdit =
+    Boolean(trimmedEditingName) && !isDuplicateEditingName && hasValidEditingDefaults;
 
   function handleCreate(event) {
-    event.preventDefault();
-    const trimmedName = newName.trim();
-    if (!trimmedName || options.some((option) => getOptionName(option) === trimmedName)) {
+    event?.preventDefault();
+    if (!canCreate) {
       return;
     }
     onCreate(
       isEventManager
         ? {
             buyIn: toNumber(newBuyIn),
-            name: trimmedName,
+            name: trimmedNewName,
             rake: toNumber(newRake),
             time: normalizeTime(newTime),
           }
-        : trimmedName,
+        : trimmedNewName,
     );
     setNewName("");
     setNewBuyIn("");
@@ -1458,19 +1484,18 @@ function OptionManager({
   }
 
   function saveEdit(event) {
-    event.preventDefault();
-    const trimmedName = editingValue.name.trim();
-    if (!trimmedName) return;
+    event?.preventDefault();
+    if (!canSaveEdit) return;
     onUpdate(
       editingName,
       isEventManager
         ? {
             buyIn: toNumber(editingValue.buyIn),
-            name: trimmedName,
+            name: trimmedEditingName,
             rake: toNumber(editingValue.rake),
             time: normalizeTime(editingValue.time),
           }
-        : trimmedName,
+        : trimmedEditingName,
     );
     setEditingName("");
     setEditingValue({ buyIn: "", name: "", rake: "", time: "" });
@@ -1483,6 +1508,7 @@ function OptionManager({
           className={
             isEventManager ? "option-create event-options" : "option-create"
           }
+          noValidate
           onSubmit={handleCreate}
         >
           <label className="field">
@@ -1524,7 +1550,12 @@ function OptionManager({
               </label>
             </>
           )}
-          <button className="primary-button" type="submit">
+          <button
+            className="primary-button"
+            disabled={!canCreate}
+            onClick={handleCreate}
+            type="button"
+          >
             <Plus size={18} />
             <span>Add {label}</span>
           </button>
@@ -1549,6 +1580,7 @@ function OptionManager({
                       className={
                         isEventManager ? "option-edit event-options" : "option-edit"
                       }
+                      noValidate
                       onSubmit={saveEdit}
                     >
                       <input
@@ -1601,7 +1633,12 @@ function OptionManager({
                           />
                         </>
                       )}
-                      <button className="primary-button" type="submit">
+                      <button
+                        className="primary-button"
+                        disabled={!canSaveEdit}
+                        onClick={saveEdit}
+                        type="button"
+                      >
                         Save
                       </button>
                       <button
@@ -1620,10 +1657,10 @@ function OptionManager({
                           {isEventManager
                             ? `${currency.format(normalizedEvent.buyIn)} + ${currency.format(
                                 normalizedEvent.rake,
-                              )}${
+                              )} · ${
                                 normalizedEvent.time
-                                  ? ` at ${formatTimeValue(normalizedEvent.time)}`
-                                  : ""
+                                  ? formatTimeValue(normalizedEvent.time)
+                                  : "Time TBD"
                               }\u00A0\u00A0|\u00A0\u00A0${usageCount} MTTs Recorded`
                             : `${usageCount} MTTs Recorded`}
                         </span>
@@ -2796,6 +2833,17 @@ function toneClass(value) {
 function toNumber(value) {
   const numericValue = Number(value);
   return Number.isFinite(numericValue) ? numericValue : 0;
+}
+
+function isOptionalNonNegativeNumber(value) {
+  if (String(value).trim() === "") return true;
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue >= 0;
+}
+
+function isOptionalTimeValue(value) {
+  const trimmedValue = String(value).trim();
+  return trimmedValue === "" || normalizeTime(trimmedValue) === trimmedValue;
 }
 
 function formatShortDate(value) {
