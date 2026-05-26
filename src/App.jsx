@@ -105,6 +105,8 @@ const seedResults = [
   },
 ];
 
+const defaultVenueOptions = ["ACR"];
+
 const portfolios = {
   drew: {
     bankrollStorageKey: "simple-poker-bankroll-drew-v2",
@@ -132,9 +134,9 @@ const portfolioOptions = Object.entries(portfolios).map(([id, portfolio]) => ({
 
 const emptyForm = {
   date: toDateInputValue(new Date()),
-  time: toTimeInputValue(new Date()),
+  time: "",
   event: "",
-  venue: "",
+  venue: "ACR",
   format: "Live",
   status: "pending",
   buyIn: "",
@@ -202,8 +204,12 @@ function App() {
     () => buildEventOptions(activePortfolio.defaultResults),
     [activePortfolio],
   );
-  const defaultVenueOptions = useMemo(
-    () => activePortfolio.defaultResults.map((result) => result.venue),
+  const defaultVenues = useMemo(
+    () =>
+      uniqueSorted([
+        ...defaultVenueOptions,
+        ...activePortfolio.defaultResults.map((result) => result.venue),
+      ]),
     [activePortfolio],
   );
   const [results, setResults] = usePersistentResults(portfolioId);
@@ -215,7 +221,7 @@ function App() {
   const [venueOptions, setVenueOptions] = usePersistentOptions(
     portfolioId,
     "venues",
-    defaultVenueOptions,
+    defaultVenues,
   );
   const [searchTerm, setSearchTerm] = useState("");
   const [editingResult, setEditingResult] = useState(null);
@@ -1057,12 +1063,15 @@ function EntryForm({
       return;
     }
 
-    const selectedEvent = eventOptions.find((option) => option.name === eventName);
+    const selectedEvent = eventOptions
+      .map(normalizeEventOption)
+      .find((option) => option.name === eventName);
     setForm((currentForm) => ({
       ...currentForm,
       event: eventName,
       buyIn: selectedEvent ? String(selectedEvent.buyIn) : currentForm.buyIn,
       rake: selectedEvent ? String(selectedEvent.rake) : currentForm.rake,
+      time: selectedEvent?.time || currentForm.time,
     }));
   }
 
@@ -1077,7 +1086,16 @@ function EntryForm({
 
   function handleSubmit(event) {
     event.preventDefault();
-    onSave(form);
+    const hasFinishValue = form.finish.trim().length > 0;
+    const hasCashValue = String(form.cash).trim().length > 0;
+    const shouldAskToComplete =
+      form.status !== "completed" && (hasFinishValue || hasCashValue);
+    const shouldMarkCompleted =
+      shouldAskToComplete &&
+      window.confirm(
+        "This MTT has a finish or cash won entered. Mark it as Completed before saving?",
+      );
+    onSave(shouldMarkCompleted ? { ...form, status: "completed" } : form);
   }
 
   const canSave = eventOptions.length > 0 && venueOptions.length > 0;
@@ -1394,11 +1412,13 @@ function OptionManager({
   const [newName, setNewName] = useState("");
   const [newBuyIn, setNewBuyIn] = useState("");
   const [newRake, setNewRake] = useState("");
+  const [newTime, setNewTime] = useState("");
   const [editingName, setEditingName] = useState("");
   const [editingValue, setEditingValue] = useState({
     buyIn: "",
     name: "",
     rake: "",
+    time: "",
   });
   const isEventManager = label === "Event";
 
@@ -1410,12 +1430,18 @@ function OptionManager({
     }
     onCreate(
       isEventManager
-        ? { buyIn: toNumber(newBuyIn), name: trimmedName, rake: toNumber(newRake) }
+        ? {
+            buyIn: toNumber(newBuyIn),
+            name: trimmedName,
+            rake: toNumber(newRake),
+            time: normalizeTime(newTime),
+          }
         : trimmedName,
     );
     setNewName("");
     setNewBuyIn("");
     setNewRake("");
+    setNewTime("");
   }
 
   function startEdit(option) {
@@ -1427,6 +1453,7 @@ function OptionManager({
       buyIn: String(normalizedOption.buyIn),
       name: normalizedOption.name,
       rake: String(normalizedOption.rake),
+      time: normalizedOption.time,
     });
   }
 
@@ -1441,11 +1468,12 @@ function OptionManager({
             buyIn: toNumber(editingValue.buyIn),
             name: trimmedName,
             rake: toNumber(editingValue.rake),
+            time: normalizeTime(editingValue.time),
           }
         : trimmedName,
     );
     setEditingName("");
-    setEditingValue({ buyIn: "", name: "", rake: "" });
+    setEditingValue({ buyIn: "", name: "", rake: "", time: "" });
   }
 
   return (
@@ -1484,6 +1512,14 @@ function OptionManager({
                   step="0.01"
                   type="number"
                   value={newRake}
+                />
+              </label>
+              <label className="field">
+                <input
+                  onChange={(event) => setNewTime(event.target.value)}
+                  step="900"
+                  type="time"
+                  value={newTime}
                 />
               </label>
             </>
@@ -1552,6 +1588,17 @@ function OptionManager({
                             type="number"
                             value={editingValue.rake}
                           />
+                          <input
+                            onChange={(event) =>
+                              setEditingValue((currentValue) => ({
+                                ...currentValue,
+                                time: event.target.value,
+                              }))
+                            }
+                            step="900"
+                            type="time"
+                            value={editingValue.time}
+                          />
                         </>
                       )}
                       <button className="primary-button" type="submit">
@@ -1573,7 +1620,11 @@ function OptionManager({
                           {isEventManager
                             ? `${currency.format(normalizedEvent.buyIn)} + ${currency.format(
                                 normalizedEvent.rake,
-                              )}\u00A0\u00A0|\u00A0\u00A0${usageCount} MTTs Recorded`
+                              )}${
+                                normalizedEvent.time
+                                  ? ` at ${formatTimeValue(normalizedEvent.time)}`
+                                  : ""
+                              }\u00A0\u00A0|\u00A0\u00A0${usageCount} MTTs Recorded`
                             : `${usageCount} MTTs Recorded`}
                         </span>
                       </div>
@@ -2080,14 +2131,20 @@ function usePersistentOptions(portfolioId, type, defaultOptions) {
   const portfolio = portfolios[portfolioId] ?? portfolios.drew;
   const storageKey = `${portfolio.storageKey}-${type}`;
   const [state, setState] = useState(() => {
+    const storedOptions = readStoredOptions(storageKey, type);
     const options =
-      readStoredOptions(storageKey, type) ?? normalizeOptions(type, defaultOptions);
+      storedOptions === null
+        ? normalizeOptions(type, defaultOptions)
+        : mergeDefaultOptions(type, storedOptions, defaultOptions);
     return { options, storageKey };
   });
 
   useEffect(() => {
+    const storedOptions = readStoredOptions(storageKey, type);
     const options =
-      readStoredOptions(storageKey, type) ?? normalizeOptions(type, defaultOptions);
+      storedOptions === null
+        ? normalizeOptions(type, defaultOptions)
+        : mergeDefaultOptions(type, storedOptions, defaultOptions);
     setState({ options, storageKey });
   }, [defaultOptions, storageKey, type]);
 
@@ -2340,6 +2397,7 @@ function promoteElapsedScheduledResults(results, now = new Date()) {
   let didPromote = false;
   const promotedResults = results.map((result) => {
     if (normalizeStatus(result.status) !== "pending") return result;
+    if (!normalizeTime(result.time)) return result;
     if (parseDateTime(result) > now) return result;
     didPromote = true;
     return { ...result, status: "live" };
@@ -2769,6 +2827,16 @@ function formatLocalTime(result) {
   }).format(parseDateTime(result));
 }
 
+function formatTimeValue(value) {
+  const normalizedTime = normalizeTime(value);
+  if (!normalizedTime) return "";
+  const [hour, minute] = normalizedTime.split(":").map(Number);
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(2000, 0, 1, hour, minute));
+}
+
 function formatRelativeHours(result) {
   const hourDifference = (parseDateTime(result) - new Date()) / 3600000;
   const absoluteHours = Math.abs(hourDifference);
@@ -2844,6 +2912,7 @@ function buildEventOptions(results) {
       buyIn: result.buyIn,
       name: result.event,
       rake: result.rake,
+      time: result.time,
     })),
   );
 }
@@ -2859,6 +2928,7 @@ function normalizeEventOption(option) {
       buyIn: seedResult?.buyIn ?? 0,
       name: option.trim(),
       rake: seedResult?.rake ?? 0,
+      time: seedResult?.time ?? "",
     };
   }
 
@@ -2867,11 +2937,16 @@ function normalizeEventOption(option) {
     buyIn: toNumber(option.buyIn ?? seedResult?.buyIn),
     name: String(option.name || "").trim(),
     rake: toNumber(option.rake ?? seedResult?.rake),
+    time: normalizeTime(option.time ?? seedResult?.time),
   };
 }
 
 function normalizeOptions(type, options) {
   return type === "events" ? uniqueEventOptions(options) : uniqueSorted(options);
+}
+
+function mergeDefaultOptions(type, options, defaultOptions) {
+  return normalizeOptions(type, [...defaultOptions, ...options]);
 }
 
 function uniqueEventOptions(options) {

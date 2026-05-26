@@ -1112,7 +1112,7 @@ td {
 }
 
 .option-create.event-options {
-  grid-template-columns: minmax(220px, 1fr) minmax(140px, 0.25fr) minmax(140px, 0.25fr) auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, 0.22fr) minmax(120px, 0.22fr) minmax(120px, 0.22fr) auto;
 }
 
 .option-list {
@@ -1150,7 +1150,7 @@ td {
 }
 
 .option-edit.event-options {
-  grid-template-columns: minmax(220px, 1fr) minmax(130px, 0.25fr) minmax(130px, 0.25fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) minmax(110px, 0.22fr) minmax(110px, 0.22fr) minmax(120px, 0.22fr) auto auto;
 }
 
 .option-edit input {
