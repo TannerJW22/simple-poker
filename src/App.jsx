@@ -1676,7 +1676,6 @@ function OptionManager({
                         </button>
                         <button
                           className="table-action danger"
-                          disabled={usageCount > 0}
                           onClick={() => onDelete(option)}
                           type="button"
                         >
