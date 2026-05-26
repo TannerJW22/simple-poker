@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
-  Camera,
   ChevronDown,
+  Copy,
   DollarSign,
   FileSpreadsheet,
   Filter,
@@ -466,7 +466,7 @@ function App() {
                 onClick={handleShareSnapshot}
                 type="button"
               >
-                <Camera size={18} />
+                <Copy size={18} />
                 <span>{isSharingSnapshot ? "Copying..." : "Share"}</span>
               </button>
             )}
