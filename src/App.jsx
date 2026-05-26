@@ -451,6 +451,14 @@ function App() {
               <h1>{screenTitle(screen, editingResult)}</h1>
             )}
           </div>
+          {screen === "dashboard" && (
+            <BankrollPanel
+              isVisible={isBankrollVisible}
+              onChange={setBankrollValue}
+              onToggleVisibility={toggleBankrollVisibility}
+              value={bankrollValue}
+            />
+          )}
           <div className="topbar-actions">
             {screen === "ledger" && (
               <label className="search-box">
@@ -505,10 +513,6 @@ function App() {
 
         {screen === "dashboard" && (
           <Dashboard
-            bankrollValue={bankrollValue}
-            isBankrollVisible={isBankrollVisible}
-            onBankrollChange={setBankrollValue}
-            onToggleBankrollVisibility={toggleBankrollVisibility}
             scheduleGroups={scheduleGroups}
             totals={totals}
           />
@@ -594,23 +598,9 @@ function screenTitle(screen, editingResult) {
   return "";
 }
 
-function Dashboard({
-  bankrollValue,
-  isBankrollVisible,
-  onBankrollChange,
-  onToggleBankrollVisibility,
-  scheduleGroups,
-  totals,
-}) {
+function Dashboard({ scheduleGroups, totals }) {
   return (
     <div className="screen-stack">
-      <BankrollPanel
-        isVisible={isBankrollVisible}
-        onChange={onBankrollChange}
-        onToggleVisibility={onToggleBankrollVisibility}
-        value={bankrollValue}
-      />
-
       <section className="metric-grid" aria-label="Tournament summary">
         <Metric
           icon={DollarSign}
@@ -660,19 +650,27 @@ function Dashboard({
 
 function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
   const [draftValue, setDraftValue] = useState(() => formatInputNumber(value));
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    setDraftValue(formatInputNumber(value));
-  }, [value]);
+    if (!isEditing) setDraftValue(formatInputNumber(value));
+  }, [isEditing, value]);
 
   function commitValue(nextValue) {
     const numericValue = Number(nextValue);
     if (nextValue === "" || !Number.isFinite(numericValue)) {
       setDraftValue(formatInputNumber(value));
+      setIsEditing(false);
       return;
     }
 
     onChange(numericValue);
+    setIsEditing(false);
+  }
+
+  function startEditing() {
+    setDraftValue(formatInputNumber(value));
+    setIsEditing(true);
   }
 
   return (
@@ -681,10 +679,11 @@ function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
         <span>Bankroll</span>
         <strong>{isVisible ? currency.format(value) : "Hidden"}</strong>
       </div>
-      <label className="bankroll-input">
+      <div className="bankroll-input">
         <span>$</span>
         <input
-          disabled={!isVisible}
+          aria-label="Bankroll amount"
+          disabled={!isVisible || !isEditing}
           inputMode="decimal"
           onBlur={(event) => commitValue(event.target.value)}
           onChange={(event) => setDraftValue(event.target.value)}
@@ -694,19 +693,27 @@ function BankrollPanel({ isVisible, onChange, onToggleVisibility, value }) {
             }
           }}
           placeholder={isVisible ? "0.00" : "Hidden"}
+          readOnly={!isEditing}
           step="0.01"
           type="number"
           value={isVisible ? draftValue : ""}
         />
-      </label>
-      <button
-        aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
-        className="icon-button"
-        onClick={onToggleVisibility}
-        type="button"
-      >
-        {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
-      </button>
+        <button
+          aria-label="Edit bankroll"
+          disabled={!isVisible}
+          onClick={startEditing}
+          type="button"
+        >
+          <Pencil size={16} />
+        </button>
+        <button
+          aria-label={isVisible ? "Hide bankroll" : "Show bankroll"}
+          onClick={onToggleVisibility}
+          type="button"
+        >
+          {isVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+        </button>
+      </div>
     </section>
   );
 }
