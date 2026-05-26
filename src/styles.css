@@ -293,6 +293,11 @@ h2 {
   border-color: #d6ded8;
 }
 
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .text-button {
   min-height: 34px;
   padding: 0 10px;

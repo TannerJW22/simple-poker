@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
+  Camera,
   ChevronDown,
   DollarSign,
   FileSpreadsheet,
@@ -204,6 +205,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState("");
   const [editingResult, setEditingResult] = useState(null);
   const [dashboardRange, setDashboardRange] = useState("all");
+  const [isSharingSnapshot, setIsSharingSnapshot] = useState(false);
 
   const todayLabel = useMemo(
     () =>
@@ -283,6 +285,46 @@ function App() {
   function handleAddMtt() {
     setEditingResult(null);
     setScreen("entry");
+  }
+
+  async function handleShareSnapshot() {
+    setIsSharingSnapshot(true);
+    try {
+      const { default: html2canvas } = await import("html2canvas");
+      const canvas = await html2canvas(document.body, {
+        backgroundColor: "#f4f6f2",
+        height: window.innerHeight,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        width: window.innerWidth,
+        windowHeight: document.documentElement.scrollHeight,
+        windowWidth: document.documentElement.scrollWidth,
+        x: window.scrollX,
+        y: window.scrollY,
+      });
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) return;
+
+      const file = new File([blob], `simple-poker-${toDateInputValue(new Date())}.png`, {
+        type: "image/png",
+      });
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: "Simple Poker Dashboard",
+        });
+        return;
+      }
+
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = file.name;
+      link.click();
+      URL.revokeObjectURL(downloadUrl);
+    } finally {
+      setIsSharingSnapshot(false);
+    }
   }
 
   function handleCreateOption(type, name) {
@@ -411,6 +453,17 @@ function App() {
                 </select>
                 <ChevronDown size={16} />
               </label>
+            )}
+            {screen === "dashboard" && (
+              <button
+                className="secondary-button"
+                disabled={isSharingSnapshot}
+                onClick={handleShareSnapshot}
+                type="button"
+              >
+                <Camera size={18} />
+                <span>{isSharingSnapshot ? "Sharing..." : "Share"}</span>
+              </button>
             )}
             {screen !== "entry" && (
               <button className="primary-button" onClick={handleAddMtt} type="button">
